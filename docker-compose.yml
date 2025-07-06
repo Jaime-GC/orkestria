@@ -1,0 +1,73 @@
+version: "3.8"
+
+# Define named volumes
+volumes:
+  db-data:
+
+services:
+
+  # PostgreSQL database service
+  db:
+    image: postgres:latest  # Use the latest PostgreSQL image
+    env_file:
+      - .env  # Load environment variables from .env file
+    volumes:
+      - db-data:/var/lib/postgresql/data  # Persist database data
+    ports:
+      - "5432:5432"  # Expose PostgreSQL on port 5432
+    restart: unless-stopped  # Restart the container unless explicitly stopped
+
+  # Backend service
+  backend:
+    build:
+      context: ./orkestria-backend  # Build context for the backend
+      dockerfile: Dockerfile  # Dockerfile for the backend
+    container_name: orkestria-backend  # Name of the backend container
+    depends_on:
+      db:
+        condition: service_started  # Wait for the database service to start
+    ports:
+      - "8080:8080"  # Expose backend on port 8080
+    environment:
+      # Spring Boot environment variables
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB:-orkestria_db}"
+      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:-postgres}"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:-admin}"
+      # Additional PostgreSQL environment variables
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: "${POSTGRES_DB:-orkestria_db}"
+      PGUSER: "${POSTGRES_USER:-postgres}"
+      PGPASSWORD: "${POSTGRES_PASSWORD:-admin}"
+      # Hibernate configuration
+      SPRING_JPA_DDL_AUTO: "${SPRING_JPA_DDL_AUTO:-update}"
+      # Application port
+      PORT: 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]  # Health check for backend
+      interval: 30s  # Interval between health checks
+      timeout: 10s  # Timeout for health check
+      retries: 5  # Number of retries before marking as unhealthy
+      start_period: 40s  # Initial delay before starting health checks
+    restart: unless-stopped  # Restart the container unless explicitly stopped
+
+  # Frontend service
+  frontend:
+    build:
+      context: ./orkestria-frontend  # Build context for the frontend
+      dockerfile: Dockerfile  # Dockerfile for the frontend
+    container_name: orkestria-frontend  # Name of the frontend container
+    depends_on:
+      backend:
+        condition: service_healthy  # Wait for the backend service to be healthy
+    ports:
+      - "8000:8000"  # Expose frontend on port 8000
+    environment:
+      - API_URL=http://backend:8080  # Backend API URL
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]  # Health check for frontend
+      interval: 30s  # Interval between health checks
+      timeout: 10s  # Timeout for health check
+      retries: 5  # Number of retries before marking as unhealthy
+      start_period: 20s  # Initial delay before starting health checks
+    restart: unless-stopped  # Restart the container unless explicitly stopped
