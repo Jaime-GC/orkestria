@@ -1,0 +1,6 @@
+[submodule "orkestria-frontend"]
+	path = orkestria-frontend
+	url = https://github.com/Jaime-GC/orkestria-frontend.git
+[submodule "orkestria-backend"]
+	path = orkestria-backend
+	url = https://github.com/Jaime-GC/orkestria-backend.git
